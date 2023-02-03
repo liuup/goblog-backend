@@ -4,6 +4,7 @@ import (
 	"errors"
 	"goblog/database"
 	"goblog/models"
+	"log"
 
 	// "log"
 	"net/http"
@@ -22,21 +23,21 @@ func HandleViewedPeoples(c *gin.Context) {
 	err := CreateViewLog(remoteip)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
-			"data": err.Error(),
+			"error": err.Error(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": "hello! viwedPeoples",
+		"viewed_peoples": GetViewedPeoplesCount(),
 	})
 }
 
-// 增加一条访问记录
+// 增加一条独立访问记录
 func CreateViewLog(ip string) error {
 	err := FindViewedLogByIP(ip)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) { // 如果没找到记录
-		vplog := models.ViwedPeoples{
+		vplog := models.ViewedPeoples{
 			IPAddress: ip,
 		}
 
@@ -55,7 +56,7 @@ func CreateViewLog(ip string) error {
 // 根据ip查询记录
 func FindViewedLogByIP(ip string) error {
 	// log.Println(ip)
-	vplog := models.ViwedPeoples{IPAddress: ip}
+	vplog := models.ViewedPeoples{IPAddress: ip}
 	result := database.DB.First(&vplog)
 
 	if result.Error != nil {
@@ -64,4 +65,17 @@ func FindViewedLogByIP(ip string) error {
 	}
 
 	return nil
+}
+
+// // TODO: 获取网站独立访问量的人数
+func GetViewedPeoplesCount() int64 {
+	var count int64
+
+	// 查找没有没删除的访问总数
+	result := database.DB.Table("viewed_peoples").Where("is_deleted = ?", 0).Count(&count)
+	if result.Error != nil {
+		log.Println(result.Error.Error())
+	}
+
+	return count
 }
