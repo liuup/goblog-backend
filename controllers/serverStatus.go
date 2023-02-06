@@ -50,40 +50,47 @@ func readFromWS(ws *websocket.Conn) {
 	}
 }
 
+func getServerStatus() (s models.ServerStatusInfo, err error) {
+	// 获取服务器负载信息
+	meminfo, err := mem.VirtualMemory()
+	if err != nil {
+		return s, err
+	}
+	cpuinfo, err := cpu.Info()
+	if err != nil {
+		return s, err
+	}
+	cpuPercent, err := cpu.Percent(0, false)
+	if err != nil {
+		return s, err
+	}
+
+	s.Memory = models.MemoryInfo{
+		Total:       meminfo.Total,
+		Available:   meminfo.Available,
+		Used:        meminfo.Used,
+		UsedPercent: meminfo.UsedPercent,
+		Free:        meminfo.Free,
+	}
+	s.CPU = models.CPUInfo{
+		ModelName: cpuinfo[0].ModelName,
+		MHZ:       cpuinfo[0].Mhz,
+		Percent:   cpuPercent,
+	}
+
+	return s, nil
+}
+
 // websocket服务器负载发送线程
 func sendServerStatus(ws *websocket.Conn) {
 	defer ws.Close()
 
-	sstatus := models.ServerStatus{} // 返回体信息
-
 	for {
 		time.Sleep(1 * time.Second)
 
-		// 获取服务器负载信息
-		meminfo, err := mem.VirtualMemory()
+		sstatus, err := getServerStatus()
 		if err != nil {
 			break
-		}
-		cpuinfo, err := cpu.Info()
-		if err != nil {
-			break
-		}
-		cpuPercent, err := cpu.Percent(0, true)
-		if err != nil {
-			break
-		}
-
-		sstatus.Memory = models.MemoryInfo{
-			Total:       meminfo.Total,
-			Available:   meminfo.Available,
-			Used:        meminfo.Used,
-			UsedPercent: meminfo.UsedPercent,
-			Free:        meminfo.Free,
-		}
-		sstatus.CPU = models.CPUInfo{
-			ModelName: cpuinfo[0].ModelName,
-			MHZ:       cpuinfo[0].Mhz,
-			Percent:   cpuPercent,
 		}
 
 		// 发送服务器负载信息
